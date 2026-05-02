@@ -49,8 +49,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     } elseif ($user['role'] === 'Organiser') {
                         header("Location: ../dashboard/organiser.php");
                     } else {
-                        // Regular Student/Attendee goes to the main events page
-                        header("Location: ../index.php"); 
+                        // Regular Student/Attendee goes to the main events page  or attendee page 
+                        // header("Location: ../index.php"); 
+                        header("Location: ../dashboard/attendee.php"); 
                     }
                     exit(); // Always use exit() after a header redirect!
 
