@@ -1,9 +1,11 @@
 <?php
 // Start session to check if user is logged in
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
 session_start();
 
-// If not logged in OR not an organiser, kick them out
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'organiser') {
+// If not logged in OR not an organiser, don't let them in 
+if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Organiser') {
     header("Location: ../auth/login.php");
     exit();
 }
@@ -18,10 +20,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['create_event'])) {
     $event_date = $_POST['event_date'];
     $location = $_POST['location'];
     $max_capacity = $_POST['max_capacity'];
+    $society_name = $_POST['society_name'];
     $organiser_id = $_SESSION['user_id'];
 
-    $sql = "INSERT INTO events (organiser_id, title, description, event_date, location, max_capacity) 
-            VALUES ('$organiser_id', '$title', '$description', '$event_date', '$location', '$max_capacity')";
+    $sql = "INSERT INTO events (organiser_id, society_name, title, description, event_date, location, max_capacity) 
+            VALUES ('$organiser_id', '$society_name', '$title', '$description', '$event_date', '$location', '$max_capacity')";
     
     if ($conn->query($sql) === TRUE) {
         $success = "Event created successfully!";
@@ -33,7 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['create_event'])) {
 // Handle delete event
 if (isset($_GET['delete'])) {
     $event_id = $_GET['delete'];
-    $sql = "DELETE FROM events WHERE id = '$event_id' AND organiser_id = '" . $_SESSION['user_id'] . "'";
+    $sql = "DELETE FROM events WHERE event_id = '$event_id' AND organiser_id = '" . $_SESSION['user_id'] . "'";
     if ($conn->query($sql) === TRUE) {
         $success = "Event deleted successfully!";
     } else {
@@ -49,10 +52,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_event'])) {
     $event_date = $_POST['event_date'];
     $location = $_POST['location'];
     $max_capacity = $_POST['max_capacity'];
+    $society_name = $_POST['society_name'];
 
     $sql = "UPDATE events SET title='$title', description='$description', event_date='$event_date', 
-            location='$location', max_capacity='$max_capacity' 
-            WHERE id='$event_id' AND organiser_id='" . $_SESSION['user_id'] . "'";
+            location='$location', max_capacity='$max_capacity', society_name='$society_name'
+            WHERE event_id='$event_id' AND organiser_id='" . $_SESSION['user_id'] . "'";
     
     if ($conn->query($sql) === TRUE) {
         $success = "Event updated successfully!";
@@ -214,7 +218,7 @@ $result = $conn->query($sql);
 </head>
 <body>
     <div class="container">
-        <h1>Welcome, <?php echo htmlspecialchars($_SESSION['name']); ?>!</h1>
+        <h1>Welcome, <?php echo htmlspecialchars($_SESSION['full_name']); ?>!</h1>
         <p style="color: #666; margin-bottom: 30px;">Manage all your society events from this dashboard.</p>
         
         <!-- Show success/error messages if any -->
@@ -230,6 +234,10 @@ $result = $conn->query($sql);
         <div class="form-section">
             <h2>Create New Event</h2>
             <form method="POST" action="">
+                <div class="form-group">
+                    <label>Society Name *</label>
+                    <input type="text" name="society_name" required placeholder="e.g., Computing Society">
+                </div>
                 <div class="form-group">
                     <label>Event Title *</label>
                     <input type="text" name="title" required>
@@ -264,6 +272,7 @@ $result = $conn->query($sql);
                 <?php while ($event = $result->fetch_assoc()): ?>
                     <div class="event-card">
                         <h3><?php echo htmlspecialchars($event['title']); ?></h3>
+                        <p><strong>Society:</strong> <?php echo htmlspecialchars($event['society_name']); ?></p>
                         <p><?php echo nl2br(htmlspecialchars($event['description'])); ?></p>
                         <div class="event-detail">
                             <strong>Date:</strong> <?php echo date('F j, Y \a\t g:i A', strtotime($event['event_date'])); ?>
@@ -276,17 +285,21 @@ $result = $conn->query($sql);
                         </div>
                         
                         <div class="actions">
-                            <button onclick="toggleEdit(<?php echo $event['id']; ?>)" class="btn-update btn-small">Update</button>
-                            <a href="?delete=<?php echo $event['id']; ?>" onclick="return confirm('Are you sure you want to delete this event? This cannot be undone.')">
+                            <button onclick="toggleEdit(<?php echo $event['event_id']; ?>)" class="btn-update btn-small">Update</button>
+                            <a href="?delete=<?php echo $event['event_id']; ?>" onclick="return confirm('Are you sure you want to delete this event? This cannot be undone.')">
                                 <button type="button" class="btn-delete btn-small">Delete</button>
                             </a>
                         </div>
 
                         <!-- Hidden update form that appears when Update button is clicked -->
-                        <div id="edit-<?php echo $event['id']; ?>" style="display:none;" class="edit-form">
+                        <div id="edit-<?php echo $event['event_id']; ?>" style="display:none;" class="edit-form">
                             <h4 style="margin-bottom: 10px;">Edit Event</h4>
                             <form method="POST">
-                                <input type="hidden" name="event_id" value="<?php echo $event['id']; ?>">
+                                <input type="hidden" name="event_id" value="<?php echo $event['event_id']; ?>">
+                                <div class="form-group">
+                                    <label>Society Name</label>
+                                    <input type="text" name="society_name" value="<?php echo htmlspecialchars($event['society_name']); ?>" required>
+                                </div>
                                 <div class="form-group">
                                     <label>Title</label>
                                     <input type="text" name="title" value="<?php echo htmlspecialchars($event['title']); ?>" required>
@@ -308,7 +321,7 @@ $result = $conn->query($sql);
                                     <input type="number" name="max_capacity" value="<?php echo $event['max_capacity']; ?>">
                                 </div>
                                 <button type="submit" name="update_event" class="btn-small">Save Changes</button>
-                                <button type="button" onclick="toggleEdit(<?php echo $event['id']; ?>)" class="btn-small" style="background:#6c757d;">Cancel</button>
+                                <button type="button" onclick="toggleEdit(<?php echo $event['event_id']; ?>)" class="btn-small" style="background:#6c757d;">Cancel</button>
                             </form>
                         </div>
                     </div>
