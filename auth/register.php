@@ -64,6 +64,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <?php if(!empty($error)) echo "<p style='color:red;'>$error</p>"; ?>
     <?php if(!empty($success)) echo "<p style='color:green;'>$success</p>"; ?>
 
+    <!-- Deleted Account: Catches the URL parameter from delete_account.php -->
+    <?php if(isset($_GET['deleted']) && $_GET['deleted'] == 'true') echo "<p style='color:red;'>Your account has been successfully deleted.</p>"; ?>
+
     <form action="register.php" method="POST">
         <label>Full Name:</label><br>
         <input type="text" name="full_name" required><br><br>
