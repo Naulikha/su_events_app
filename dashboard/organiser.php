@@ -13,61 +13,97 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Organiser') {
 // Connect to database
 include '../config/db.php';
 
+// Server-side sanitization function
+function sanitizeInput($data) {
+    $data = trim($data);
+    $data = stripslashes($data);
+    $data = htmlspecialchars($data);
+    return $data;
+}
+
 // Handle create event form submission
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['create_event'])) {
-    $title = $_POST['title'];
-    $description = $_POST['description'];
-    $event_date = $_POST['event_date'];
-    $location = $_POST['location'];
-    $max_capacity = $_POST['max_capacity'];
-    $society_name = $_POST['society_name'];
+    // Sanitize inputs
+    $title = sanitizeInput($_POST['title']);
+    $description = sanitizeInput($_POST['description']);
+    $event_date = sanitizeInput($_POST['event_date']);
+    $location = sanitizeInput($_POST['location']);
+    $max_capacity = sanitizeInput($_POST['max_capacity']);
+    $society_name = sanitizeInput($_POST['society_name']);
     $organiser_id = $_SESSION['user_id'];
-
-    $sql = "INSERT INTO events (organiser_id, society_name, title, description, event_date, location, max_capacity) 
-            VALUES ('$organiser_id', '$society_name', '$title', '$description', '$event_date', '$location', '$max_capacity')";
     
-    if ($conn->query($sql) === TRUE) {
-        $success = "Event created successfully!";
+    // Server-side validation
+    $errors = [];
+    if (empty($title)) $errors[] = "Event title is required";
+    if (empty($event_date)) $errors[] = "Event date is required";
+    if (empty($society_name)) $errors[] = "Society name is required";
+    if (!is_numeric($max_capacity) || $max_capacity <= 0) $errors[] = "Max capacity must be a positive number";
+    
+    if (empty($errors)) {
+        // Using prepared statement
+        $sql = "INSERT INTO events (organiser_id, society_name, title, description, event_date, location, max_capacity) 
+                VALUES (?, ?, ?, ?, ?, ?, ?)";
+        
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("isssssi", $organiser_id, $society_name, $title, $description, $event_date, $location, $max_capacity);
+        
+        if ($stmt->execute()) {
+            $success = "Event created successfully!";
+        } else {
+            $error = "Something went wrong: " . $conn->error;
+        }
+        $stmt->close();
     } else {
-        $error = "Something went wrong: " . $conn->error;
+        $error = implode(", ", $errors);
     }
 }
 
 // Handle delete event
 if (isset($_GET['delete'])) {
-    $event_id = $_GET['delete'];
-    $sql = "DELETE FROM events WHERE event_id = '$event_id' AND organiser_id = '" . $_SESSION['user_id'] . "'";
-    if ($conn->query($sql) === TRUE) {
+    $event_id = sanitizeInput($_GET['delete']);
+    
+    $sql = "DELETE FROM events WHERE event_id = ? AND organiser_id = ?";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("ii", $event_id, $_SESSION['user_id']);
+    
+    if ($stmt->execute()) {
         $success = "Event deleted successfully!";
     } else {
         $error = "Could not delete event";
     }
+    $stmt->close();
 }
 
 // Handle update event
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_event'])) {
-    $event_id = $_POST['event_id'];
-    $title = $_POST['title'];
-    $description = $_POST['description'];
-    $event_date = $_POST['event_date'];
-    $location = $_POST['location'];
-    $max_capacity = $_POST['max_capacity'];
-    $society_name = $_POST['society_name'];
+    $event_id = sanitizeInput($_POST['event_id']);
+    $title = sanitizeInput($_POST['title']);
+    $description = sanitizeInput($_POST['description']);
+    $event_date = sanitizeInput($_POST['event_date']);
+    $location = sanitizeInput($_POST['location']);
+    $max_capacity = sanitizeInput($_POST['max_capacity']);
+    $society_name = sanitizeInput($_POST['society_name']);
 
-    $sql = "UPDATE events SET title='$title', description='$description', event_date='$event_date', 
-            location='$location', max_capacity='$max_capacity', society_name='$society_name'
-            WHERE event_id='$event_id' AND organiser_id='" . $_SESSION['user_id'] . "'";
+    $sql = "UPDATE events SET title=?, description=?, event_date=?, location=?, max_capacity=?, society_name=?
+            WHERE event_id=? AND organiser_id=?";
     
-    if ($conn->query($sql) === TRUE) {
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("sssssiii", $title, $description, $event_date, $location, $max_capacity, $society_name, $event_id, $_SESSION['user_id']);
+    
+    if ($stmt->execute()) {
         $success = "Event updated successfully!";
     } else {
         $error = "Error updating event";
     }
+    $stmt->close();
 }
 
 // Get all events created by this organiser
-$sql = "SELECT * FROM events WHERE organiser_id = '" . $_SESSION['user_id'] . "' ORDER BY event_date ASC";
-$result = $conn->query($sql);
+$sql = "SELECT * FROM events WHERE organiser_id = ? ORDER BY event_date ASC";
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("i", $_SESSION['user_id']);
+$stmt->execute();
+$result = $stmt->get_result();
 ?>
 
 <!DOCTYPE html>
@@ -330,9 +366,9 @@ $result = $conn->query($sql);
         <?php endif; ?>
         
         <hr>
-        <a href="../auth/logout.php" class="logout-link">Logout</a>
-        &nbsp;|&nbsp;
-        <a href="../auth/delete_account.php" class="logout-link" onclick="return confirm('Warning: This will delete ALL your events and data. Are you absolutely sure?')" style="color:#dc3545;">Delete My Account</a>
+        <form action="../auth/delete_account.php" method="POST" style="display: inline;" onsubmit="return confirm('Warning: This will delete ALL your events and data. Are you absolutely sure?');">
+    <button type="submit" style="color: #dc3545; background: none; border: none; padding: 0; font: inherit; cursor: pointer; text-decoration: underline;">Delete My Account</button>
+</form>
     </div>
 
     <script>
