@@ -282,6 +282,9 @@ if (isset($_GET['view_roster'])) {
 </head>
 
 <body>
+    <!-- Navbar dynamic -->
+    <?php include $_SERVER['DOCUMENT_ROOT'] . '/su_events_app/includes/navbar.php'; ?>
+    
     <div class="container">
         <h1>Welcome, <?php echo htmlspecialchars($_SESSION['full_name']); ?>!</h1>
         <p style="color: #666; margin-bottom: 30px;">Manage all your society events from this dashboard.</p>

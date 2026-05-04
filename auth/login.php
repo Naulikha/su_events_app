@@ -76,6 +76,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <title>SU Events - Login</title>
 </head>
 <body>
+    <!-- Navbar dynamic -->
+    <?php include $_SERVER['DOCUMENT_ROOT'] . '/su_events_app/includes/navbar.php'; ?>
 <!-- Inject Flash Notifications -->
     <?php include '../includes/flash.php'; ?>
 

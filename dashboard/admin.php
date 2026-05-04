@@ -154,14 +154,14 @@ $result_events = $conn->query($sql_events);
     </style>
 </head>
 <body>
-
+    <!-- to replace static navbar -->
+    <?php include $_SERVER['DOCUMENT_ROOT'] . '/su_events_app/includes/navbar.php'; ?>
     <!-- to replace old succes and error messages -->
     <?php include '../includes/flash.php'; ?>
 
     <h2>Admin Dashboard: System Management</h2>
     <p>Welcome, <?php echo htmlspecialchars($_SESSION['full_name']); ?>. You have full system access.</p>
     
-    <a href="../auth/logout.php">Logout</a> | <a href="../index.php">View Public Events Page</a>
     <hr>
 
     <!-- old messages -->

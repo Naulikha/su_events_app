@@ -124,14 +124,14 @@ $result = $stmt->get_result();
     </style>
 </head>
 <body>
+    <!-- Navbar dynamic -->
+    <?php include $_SERVER['DOCUMENT_ROOT'] . '/su_events_app/includes/navbar.php'; ?>
     <!-- Inject your beautiful Flash Notifications! -->
     <?php include '../includes/flash.php'; ?>
 
     <h2>Welcome, <?php echo htmlspecialchars($_SESSION['full_name']); ?>! 🎓</h2>
     <p>Here is your digital wallet of booked events.</p>
     
-    <a href="../index.php" style="background:#28a745; color:white; padding:8px 15px; text-decoration:none; border-radius:4px;">Browse More Events</a>
-    <a href="../auth/logout.php" style="margin-left:10px;">Logout</a>
     <hr>
 
     <h3>My Digital Tickets</h3>

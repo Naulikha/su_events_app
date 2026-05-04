@@ -96,24 +96,11 @@ if (isset($_SESSION['user_id']) && $_SESSION['role'] === 'Attendee') {
     </style>
 </head>
 <body>
-
+    <!-- to replace header navigation -->
+    <?php include $_SERVER['DOCUMENT_ROOT'] . '/su_events_app/includes/navbar.php'; ?>
+    <!-- for success and error messages -->
     <?php include 'includes/flash.php'; ?>
 
-    <header>
-        <div style="font-size: 1.5rem; font-weight: bold;">🎓 SU Events</div>
-        <nav>
-            <?php if(isset($_SESSION['user_id'])): ?>
-                <?php 
-                    $dashboard = ($_SESSION['role'] === 'Admin') ? 'dashboard/admin.php' : 
-                                (($_SESSION['role'] === 'Organiser') ? 'dashboard/organiser.php' : 'dashboard/attendee.php');
-                ?>
-                <a href="<?php echo $dashboard; ?>">My Dashboard</a>
-                <a href="auth/logout.php">Logout</a>
-            <?php else: ?>
-                <a href="auth/login.php">Login</a>
-            <?php endif; ?>
-        </nav>
-    </header>
 
     <div class="container">
         <a href="index.php" class="back-link">← Back to Events</a>

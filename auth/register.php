@@ -85,6 +85,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <title>SU Events - Register</title>
 </head>
 <body>
+    <!-- Navbar dynamic -->
+    <?php include $_SERVER['DOCUMENT_ROOT'] . '/su_events_app/includes/navbar.php'; ?>
+    <!-- for flash messages -->
     <?php include '../includes/flash.php'; ?>
     <h2>Register for SU Events</h2>
 
@@ -96,7 +99,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <?php if(isset($_GET['deleted']) && $_GET['deleted'] == 'true') echo "<p style='color:red;'>Your account has been successfully deleted.</p>"; ?>
 
 
-    //added novalidate to allow php to take care of the validation
+    <!-- //added novalidate to allow php to take care of the validation -->
     <form action="register.php" method="POST" novalidate>
         <label>Full Name:</label><br>
         <input type="text" name="full_name" required><br><br>

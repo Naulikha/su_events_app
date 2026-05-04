@@ -95,28 +95,14 @@ $cat_result = $conn->query("SELECT * FROM event_categories ORDER BY category_nam
     </style>
 </head>
 <body>
+    <!-- Navbar for navigation -->
+    <?php include $_SERVER['DOCUMENT_ROOT'] . '/su_events_app/includes/navbar.php'; ?>
     
     <!-- Flash Messages (In case they login/logout from index) -->
     <?php include 'includes/flash.php'; ?>
 
     <!-- Navigation -->
-    <header>
-        <div style="font-size: 1.5rem; font-weight: bold;">🎓 SU Events</div>
-        <nav>
-            <?php if(isset($_SESSION['user_id'])): ?>
-                <?php 
-                    // Dynamic dashboard link based on role
-                    $dashboard = ($_SESSION['role'] === 'Admin') ? 'dashboard/admin.php' : 
-                                (($_SESSION['role'] === 'Organiser') ? 'dashboard/organiser.php' : 'dashboard/attendee.php');
-                ?>
-                <a href="<?php echo $dashboard; ?>">My Dashboard</a>
-                <a href="auth/logout.php">Logout</a>
-            <?php else: ?>
-                <a href="auth/login.php">Login</a>
-                <a href="auth/register.php">Sign Up</a>
-            <?php endif; ?>
-        </nav>
-    </header>
+     <!-- switched to dynamic navbar for each replacing header -->
 
     <!-- Hero Section -->
     <div class="hero">
