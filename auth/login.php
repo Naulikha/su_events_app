@@ -84,7 +84,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <!-- Display Error Messages -->
     <?php if(!empty($error)) echo "<p style='color:red;'>$error</p>"; ?>
 
-    //added novalidate to allow php to do the validation
+    <!-- added novalidate to allow php to do the validation -->
     <form action="login.php" method="POST" novalidate>
         <label>Email Address:</label><br>
         <input type="email" name="email" required><br><br>
