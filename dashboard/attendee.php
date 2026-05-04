@@ -68,9 +68,38 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['event_id'])) {
 }
 
 // ==========================================
+// 🗑️ HANDLE TICKET CANCELLATION (Secured)
+// ==========================================
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['cancel_event_id'])) {
+    $cancel_event_id = (int)$_POST['cancel_event_id'];
+
+    try {
+        $stmt = $conn->prepare("DELETE FROM bookings WHERE attendee_id = ? AND event_id = ?");
+        $stmt->bind_param("ii", $user_id, $cancel_event_id);
+        $stmt->execute();
+
+        // Check if a row was actually deleted
+        if ($stmt->affected_rows > 0) {
+            $_SESSION['flash_success'] = "Ticket cancelled successfully. The spot has been freed up!";
+        } else {
+            $_SESSION['flash_error'] = "Could not find that ticket.";
+        }
+        $stmt->close();
+        
+    } catch (mysqli_sql_exception $e) {
+        $_SESSION['flash_error'] = "Database error: " . $e->getMessage();
+    }
+
+    // PRG Pattern: Redirect to clear the form!
+    header("Location: attendee.php");
+    exit();
+}
+
+
+// ==========================================
 // 📋 GET BOOKED EVENTS (Secured JOIN)
 // ==========================================
-$sql = "SELECT e.title, e.event_date, e.location, e.image_path, b.booking_date 
+$sql = "SELECT e.event_id, e.title, e.event_date, e.location, e.image_path, b.booking_date 
         FROM bookings b
         JOIN events e ON b.event_id = e.event_id 
         WHERE b.attendee_id = ?
@@ -114,6 +143,13 @@ $result = $stmt->get_result();
                 <div class="ticket-detail">📅 <strong>Date:</strong> <?php echo date('F j, Y @ g:i A', strtotime($row['event_date'])); ?></div>
                 <div class="ticket-detail">📍 <strong>Location:</strong> <?php echo htmlspecialchars($row['location']); ?></div>
                 <div class="ticket-detail" style="font-size: 12px; color: #999; margin-top: 10px;">Ticket secured on: <?php echo date('M d, Y', strtotime($row['booking_date'])); ?></div>
+            
+            <!-- NEW CANCEL BUTTON -->
+                <form method="POST" action="attendee.php" onsubmit="return confirm('Are you sure you want to cancel your ticket? This cannot be undone.');" style="margin-top: 15px; border-top: 1px dashed #ccc; padding-top: 10px;">
+                    <input type="hidden" name="cancel_event_id" value="<?php echo $row['event_id']; ?>">
+                    <button type="submit" style="background:#dc3545; color:white; border:none; padding:6px 12px; border-radius:4px; font-size:12px; cursor:pointer;">Cancel Ticket</button>
+                </form>
+
             </div>
         <?php endwhile; ?>
     <?php else: ?>
