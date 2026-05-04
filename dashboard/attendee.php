@@ -18,7 +18,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Attendee') {
     <p>Here you will see the events you have booked tickets for.</p>
 
     <!-- The Delete Account Feature -->
-    <form action="delete_account.php" method="POST" onsubmit="return confirm('Are you sure you want to delete your account?');">
+    <form action="../auth/delete_account.php" method="POST" onsubmit="return confirm('Are you sure you want to delete your account?');">
         <button type="submit" style="color:red;">Delete My Account</button>
     </form>
     <br>

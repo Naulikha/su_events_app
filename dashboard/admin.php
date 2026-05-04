@@ -12,6 +12,9 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Admin') {
 // REFERENCE: Working with Databases (Lecture)
 require_once '../config/db.php';
 
+// Enable exception throwing for MySQLi so we can catch constraint errors!
+mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
+
 $success = "";
 $error = "";
 
@@ -21,85 +24,247 @@ if (isset($_GET['delete_user'])) {
     
     // Protection: Prevent the Admin from accidentally deleting themselves!
     if ($target_user_id === $_SESSION['user_id']) {
-        $error = "You cannot delete your own Admin account!";
+        $_SESSION['flash_error'] = "You cannot delete your own Admin account!";
     } else {
         // REFERENCE: PHP_MYSQL_PREPARED_STATEMENTS (Lecture)
-        $stmt = $conn->prepare("DELETE FROM users WHERE user_id = ?");
-        $stmt->bind_param("i", $target_user_id);
-        
-        if ($stmt->execute()) {
-            $success = "User successfully deleted.";
-        } else {
-            $error = "Failed to delete user.";
+        try {
+            $stmt = $conn->prepare("DELETE FROM users WHERE user_id = ?");
+            $stmt->bind_param("i", $target_user_id);
+            $stmt->execute(); // We TRY to execute
+            $_SESSION['flash_success'] = "User successfully deleted.";
+            $stmt->close();
+        } catch (mysqli_sql_exception $e) {
+            // We CATCH any failure and turn it into a red flash message
+            $_SESSION['flash_error'] = "Failed to delete user: " . $e->getMessage();
         }
+    }
+    header("Location: admin.php");
+    exit();
+}
+
+// --- HANDLE EVENT DELETION (Admin Power!) ---
+if (isset($_GET['delete_event'])) {
+    $target_event_id = (int)$_GET['delete_event'];
+    
+    // REFERENCE: PHP_MYSQL_PREPARED_STATEMENTS (Lecture)
+    try {
+        $stmt = $conn->prepare("DELETE FROM events WHERE event_id = ?");
+        $stmt->bind_param("i", $target_event_id);
+        $stmt->execute(); // We TRY to execute
+        $_SESSION['flash_success'] = "Event successfully deleted.";
         $stmt->close();
+    } catch (mysqli_sql_exception $e) {
+        // We CATCH any failure and turn it into a red flash message
+        $_SESSION['flash_error'] = "Failed to delete event: " . $e->getMessage();
+    }
+    header("Location: admin.php");
+    exit();
+ }
+
+
+// --- CATEGORY MANAGEMENT LOGIC ---
+
+
+// 1. Create Category
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_category'])) {
+    $new_category = htmlspecialchars(trim($_POST['category_name']));
+    
+    if (!empty($new_category)) {
+        try {
+            $stmt = $conn->prepare("INSERT INTO event_categories (category_name) VALUES (?)");
+            $stmt->bind_param("s", $new_category);
+            $stmt->execute();
+            $_SESSION['flash_success'] = "Category '$new_category' added successfully!";
+            $stmt->close();
+
+            // Redirect to clear form submission
+            header("Location: admin.php");
+            exit();
+        } catch (mysqli_sql_exception $e) {
+            if ($e->getCode() == 1062) { // 1062 is the MySQL code for "Duplicate Entry"
+                $error = "That category already exists!";
+            } else {
+                $error = "Database error: " . $e->getMessage();
+            }
+        }
     }
 }
 
+// 2. Delete Category (With Protection)
+if (isset($_GET['delete_category'])) {
+    $cat_id = (int)$_GET['delete_category'];
+    
+    try {
+        $stmt = $conn->prepare("DELETE FROM event_categories WHERE category_id = ?");
+        $stmt->bind_param("i", $cat_id);
+        $stmt->execute();
+
+        // NEW FLASH LOGIC
+        $_SESSION['flash_success'] = "Category deleted successfully!";
+
+        // $success = "Category deleted successfully!";
+        $stmt->close();
+
+        // Redirect to clear the ?delete_category= ID from the URL
+        header("Location: admin.php");
+        exit();
+
+    } catch (mysqli_sql_exception $e) {
+        if ($e->getCode() == 1451) { // 1451 is the MySQL code for "Foreign Key Constraint Failure"
+            $_SESSION['flash_error'] = "Cannot delete this category! There are active events currently using it.";
+        } else {
+            $_SESSION['flash_error'] = "Database error: " . $e->getMessage();
+        }
+        header("Location: admin.php");
+        exit();
+    }
+}
+
+// 3. Fetch Categories for the HTML table
+$result_categories = $conn->query("SELECT * FROM event_categories ORDER BY category_name ASC");
+
 // --- FETCH ALL USERS ---
-// We want to see newest users first
-$sql = "SELECT user_id, full_name, student_id, email, role, created_at FROM users ORDER BY created_at DESC";
-$result = $conn->query($sql);
+//new users first
+$sql_users = "SELECT user_id, full_name, student_id, email, role, created_at FROM users ORDER BY created_at DESC";
+$result_users = $conn->query($sql_users);
+
+// --- FETCH ALL EVENTS (Using JOIN to get the Organiser's Name) ---
+// REFERENCE: Working with Databases (Lecture)
+$sql_events = "SELECT e.event_id, e.title, e.society_name, e.event_date, e.max_capacity, u.full_name AS organiser_name 
+               FROM events e 
+               JOIN users u ON e.organiser_id = u.user_id 
+               ORDER BY e.event_date ASC";
+$result_events = $conn->query($sql_events);
 ?>
 
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Admin Dashboard - User Management</title>
+    <title>Admin Dashboard - System Management</title>
     <style>
         body { font-family: Arial, sans-serif; padding: 20px; background: #f4f4f9; }
-        table { width: 100%; border-collapse: collapse; background: white; margin-top: 20px; }
+        .table-container { margin-bottom: 40px; }
+        table { width: 100%; border-collapse: collapse; background: white; margin-top: 10px; }
         th, td { padding: 12px; border: 1px solid #ddd; text-align: left; }
         th { background-color: #333; color: white; }
-        .btn-delete { background: #dc3545; color: white; padding: 5px 10px; text-decoration: none; border-radius: 3px; }
-        .success { color: green; font-weight: bold; }
-        .error { color: red; font-weight: bold; }
+        .btn-delete { background: #dc3545; color: white; padding: 5px 10px; text-decoration: none; border-radius: 3px; font-size: 14px;}
+        .success { color: green; font-weight: bold; background: #d4edda; padding: 10px; border-radius: 5px; border: 1px solid #c3e6cb;}
+        .error { color: red; font-weight: bold; background: #f8d7da; padding: 10px; border-radius: 5px; border: 1px solid #f5c6cb;}
     </style>
 </head>
 <body>
-    <h2>Admin Dashboard: User Management</h2>
+
+    <!-- to replace old succes and error messages -->
+    <?php include '../includes/flash.php'; ?>
+
+    <h2>Admin Dashboard: System Management</h2>
     <p>Welcome, <?php echo htmlspecialchars($_SESSION['full_name']); ?>. You have full system access.</p>
     
     <a href="../auth/logout.php">Logout</a> | <a href="../index.php">View Public Events Page</a>
     <hr>
 
-    <?php if(!empty($success)) echo "<p class='success'>$success</p>"; ?>
-    <?php if(!empty($error)) echo "<p class='error'>$error</p>"; ?>
+    <!-- old messages -->
+    <!-- <?php if(!empty($success)) echo "<div class='success'>$success</div><br>"; ?> -->
+    <!-- <?php if(!empty($error)) echo "<div class='error'>$error</div><br>"; ?> -->
 
-    <table>
-        <tr>
-            <th>ID</th>
-            <th>Full Name</th>
-            <th>Student ID</th>
-            <th>Email</th>
-            <th>Role</th>
-            <th>Joined</th>
-            <th>Action</th>
-        </tr>
+    <!-- SECTION 1: USER MANAGEMENT -->
+    <div class="table-container">
+        <h3>Registered Users</h3>
+        <table>
+            <tr>
+                <th>ID</th>
+                <th>Full Name</th>
+                <th>Role</th>
+                <th>Joined</th>
+                <th>Action</th>
+            </tr>
+            <?php if ($result_users->num_rows > 0): ?>
+                <?php while($user = $result_users->fetch_assoc()): ?>
+                    <tr>
+                        <td><?php echo $user['user_id']; ?></td>
+                        <td><?php echo htmlspecialchars($user['full_name']); ?></td>
+                        <td><strong><?php echo $user['role']; ?></strong></td>
+                        <td><?php echo date('M d, Y', strtotime($user['created_at'])); ?></td>
+                        <td>
+                            <?php if ($user['user_id'] !== $_SESSION['user_id']): ?>
+                                <a href="?delete_user=<?php echo $user['user_id']; ?>" class="btn-delete" onclick="return confirm('Delete this user? This will also wipe all their events and bookings!');">Delete User</a>
+                            <?php else: ?>
+                                <em>Your Account</em>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                <?php endwhile; ?>
+            <?php else: ?>
+                <tr><td colspan="5">No users found.</td></tr>
+            <?php endif; ?>
+        </table>
+    </div>
+
+    <!-- SECTION 2: EVENT MANAGEMENT -->
+    <div class="table-container">
+        <h3>All Society Events</h3>
+        <table>
+            <tr>
+                <th>Event ID</th>
+                <th>Title</th>
+                <th>Society</th>
+                <th>Organiser Name</th>
+                <th>Date</th>
+                <th>Capacity</th>
+                <th>Action</th>
+            </tr>
+            <?php if ($result_events->num_rows > 0): ?>
+                <?php while($event = $result_events->fetch_assoc()): ?>
+                    <tr>
+                        <!-- REFERENCE: HTML Entities (Lecture) -> secure output -->
+                        <td><?php echo $event['event_id']; ?></td>
+                        <td><strong><?php echo htmlspecialchars($event['title']); ?></strong></td>
+                        <td><?php echo htmlspecialchars($event['society_name']); ?></td>
+                        <td><?php echo htmlspecialchars($event['organiser_name']); ?></td>
+                        <td><?php echo date('M d, Y @ g:i A', strtotime($event['event_date'])); ?></td>
+                        <td><?php echo $event['max_capacity']; ?></td>
+                        <td>
+                            <a href="?delete_event=<?php echo $event['event_id']; ?>" class="btn-delete" onclick="return confirm('Delete this event? All student bookings for this event will be canceled.');">Delete Event</a>
+                        </td>
+                    </tr>
+                <?php endwhile; ?>
+            <?php else: ?>
+                <tr><td colspan="7">No events have been created yet.</td></tr>
+            <?php endif; ?>
+        </table>
+    </div>
+
+    <!-- SECTION 3: CATEGORY MANAGEMENT -->
+    <div class="table-container">
+        <h3>Manage Categories</h3>
         
-        <?php if ($result->num_rows > 0): ?>
-            <?php while($user = $result->fetch_assoc()): ?>
-                <tr>
-                    <!-- REFERENCE: HTML Entities (Lecture) -> secure output -->
-                    <td><?php echo $user['user_id']; ?></td>
-                    <td><?php echo htmlspecialchars($user['full_name']); ?></td>
-                    <td><?php echo htmlspecialchars($user['student_id']); ?></td>
-                    <td><?php echo htmlspecialchars($user['email']); ?></td>
-                    <td><strong><?php echo $user['role']; ?></strong></td>
-                    <td><?php echo date('M d, Y', strtotime($user['created_at'])); ?></td>
-                    <td>
-                        <?php if ($user['user_id'] !== $_SESSION['user_id']): ?>
-                            <a href="?delete_user=<?php echo $user['user_id']; ?>" class="btn-delete" onclick="return confirm('Delete this user? This will also delete all their events and bookings!');">Delete</a>
-                        <?php else: ?>
-                            <em>Your Account</em>
-                        <?php endif; ?>
-                    </td>
-                </tr>
-            <?php endwhile; ?>
-        <?php else: ?>
-            <tr><td colspan="7">No users found.</td></tr>
-        <?php endif; ?>
-    </table>
+        <!-- The Creation Form -->
+        <form method="POST" action="" style="margin-bottom: 20px;">
+            <input type="text" name="category_name" placeholder="New Category Name" required style="padding: 8px; width: 300px; border: 1px solid #ccc; border-radius: 4px;">
+            <button type="submit" name="add_category" style="background: #28a745; color: white; padding: 8px 12px; border: none; border-radius: 4px; cursor: pointer;">Add Category</button>
+        </form>
+
+        <!-- The Display Table -->
+        <table>
+            <tr>
+                <th>Category Name</th>
+                <th>Action</th>
+            </tr>
+            <?php if ($result_categories->num_rows > 0): ?>
+                <?php while($cat = $result_categories->fetch_assoc()): ?>
+                    <tr>
+                        <td><?php echo htmlspecialchars($cat['category_name']); ?></td>
+                        <td>
+                            <a href="?delete_category=<?php echo $cat['category_id']; ?>" class="btn-delete" onclick="return confirm('Are you sure you want to delete this category?');">Delete Category</a>
+                        </td>
+                    </tr>
+                <?php endwhile; ?>
+            <?php else: ?>
+                <tr><td colspan="2">No categories found.</td></tr>
+            <?php endif; ?>
+        </table>
+    </div>
+
 </body>
 </html>

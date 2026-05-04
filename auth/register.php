@@ -23,8 +23,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $role = $_POST['role'];
 
     // Basic Validation
+   // Basic Validation & PATTERN MATCHING
     if (empty($fullName) || empty($studentId) || empty($email) || empty($password)) {
         $error = "All fields are required.";
+    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        // Prove server-side email validation
+        $error = "Invalid email format.";
+    } elseif (!preg_match("/^[a-zA-Z0-9]{6,20}$/", $studentId)) {
+        // Prove server-side pattern matching: Student ID must be 6-20 letters/numbers
+        $error = "Student ID must be between 6 and 20 alphanumeric characters.";
+    } elseif (strlen($password) < 8) {
+        // Prove server-side password strength validation
+        $error = "Password must be at least 8 characters long.";
     } else {
         // 2. Hash the Password (Fits into our 100 char limit!)
         $hashed_password = password_hash($password, PASSWORD_DEFAULT);
@@ -37,11 +47,28 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         if ($stmt) {
             $stmt->bind_param("sssss", $fullName, $studentId, $email, $hashed_password, $role);
             
-            if ($stmt->execute()) {
-                $success = "Registration successful! You can now login.";
-                // might header("Location: login.php"); here
-            } else {
-                $error = "Error: This Student ID or Email might already exist.";
+            try {
+                // We TRY to execute the query
+                $stmt->execute();
+                
+                // If it doesn't crash, it means success!
+                // // NEW FLASH LOGIC
+                $_SESSION['flash_success'] = "Registration successful! You can now login.";
+                $stmt->close();
+
+                // Send them to the login page
+                header("Location: login.php");
+                exit();
+                
+            } catch (mysqli_sql_exception $e) {
+                // If it crashes, we CATCH the error in mid-air
+                if ($e->getCode() == 1062) {
+                    // 1062 is the exact code for "Duplicate Entry"
+                    $error = "An account with this Email or Student ID already exists!";
+                } else {
+                    // This catches any other random database failures
+                    $error = "Database error: " . $e->getMessage();
+                }
             }
             $stmt->close();
         } else {
@@ -58,13 +85,19 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <title>SU Events - Register</title>
 </head>
 <body>
+    <?php include '../includes/flash.php'; ?>
     <h2>Register for SU Events</h2>
 
     <!-- Display Messages -->
     <?php if(!empty($error)) echo "<p style='color:red;'>$error</p>"; ?>
     <?php if(!empty($success)) echo "<p style='color:green;'>$success</p>"; ?>
 
-    <form action="register.php" method="POST">
+    <!-- Deleted Account: Catches the URL parameter from delete_account.php -->
+    <?php if(isset($_GET['deleted']) && $_GET['deleted'] == 'true') echo "<p style='color:red;'>Your account has been successfully deleted.</p>"; ?>
+
+
+    //added novalidate to allow php to take care of the validation
+    <form action="register.php" method="POST" novalidate>
         <label>Full Name:</label><br>
         <input type="text" name="full_name" required><br><br>
 
