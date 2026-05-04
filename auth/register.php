@@ -23,8 +23,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $role = $_POST['role'];
 
     // Basic Validation
+   // Basic Validation & PATTERN MATCHING
     if (empty($fullName) || empty($studentId) || empty($email) || empty($password)) {
         $error = "All fields are required.";
+    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        // Prove server-side email validation
+        $error = "Invalid email format.";
+    } elseif (!preg_match("/^[a-zA-Z0-9]{6,20}$/", $studentId)) {
+        // Prove server-side pattern matching: Student ID must be 6-20 letters/numbers
+        $error = "Student ID must be between 6 and 20 alphanumeric characters.";
+    } elseif (strlen($password) < 8) {
+        // Prove server-side password strength validation
+        $error = "Password must be at least 8 characters long.";
     } else {
         // 2. Hash the Password (Fits into our 100 char limit!)
         $hashed_password = password_hash($password, PASSWORD_DEFAULT);
@@ -67,7 +77,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <!-- Deleted Account: Catches the URL parameter from delete_account.php -->
     <?php if(isset($_GET['deleted']) && $_GET['deleted'] == 'true') echo "<p style='color:red;'>Your account has been successfully deleted.</p>"; ?>
 
-    <form action="register.php" method="POST">
+
+    //added novalidate to allow php to take care of the validation
+    <form action="register.php" method="POST" novalidate>
         <label>Full Name:</label><br>
         <input type="text" name="full_name" required><br><br>
 
