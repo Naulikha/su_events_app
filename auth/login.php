@@ -76,6 +76,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <title>SU Events - Login</title>
 </head>
 <body>
+<!-- Inject Flash Notifications -->
+    <?php include '../includes/flash.php'; ?>
+
     <h2>Login to SU Events</h2>
 
     <!-- Display Error Messages -->

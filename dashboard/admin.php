@@ -24,19 +24,22 @@ if (isset($_GET['delete_user'])) {
     
     // Protection: Prevent the Admin from accidentally deleting themselves!
     if ($target_user_id === $_SESSION['user_id']) {
-        $error = "You cannot delete your own Admin account!";
+        $_SESSION['flash_error'] = "You cannot delete your own Admin account!";
     } else {
         // REFERENCE: PHP_MYSQL_PREPARED_STATEMENTS (Lecture)
-        $stmt = $conn->prepare("DELETE FROM users WHERE user_id = ?");
-        $stmt->bind_param("i", $target_user_id);
-        
-        if ($stmt->execute()) {
-            $success = "User successfully deleted.";
-        } else {
-            $error = "Failed to delete user.";
+        try {
+            $stmt = $conn->prepare("DELETE FROM users WHERE user_id = ?");
+            $stmt->bind_param("i", $target_user_id);
+            $stmt->execute(); // We TRY to execute
+            $_SESSION['flash_success'] = "User successfully deleted.";
+            $stmt->close();
+        } catch (mysqli_sql_exception $e) {
+            // We CATCH any failure and turn it into a red flash message
+            $_SESSION['flash_error'] = "Failed to delete user: " . $e->getMessage();
         }
-        $stmt->close();
     }
+    header("Location: admin.php");
+    exit();
 }
 
 // --- HANDLE EVENT DELETION (Admin Power!) ---
@@ -44,15 +47,19 @@ if (isset($_GET['delete_event'])) {
     $target_event_id = (int)$_GET['delete_event'];
     
     // REFERENCE: PHP_MYSQL_PREPARED_STATEMENTS (Lecture)
-    $stmt = $conn->prepare("DELETE FROM events WHERE event_id = ?");
-    $stmt->bind_param("i", $target_event_id);
-    if ($stmt->execute()) {
-        $success = "Event successfully deleted.";
-    } else {
-        $error = "Failed to delete event.";
+    try {
+        $stmt = $conn->prepare("DELETE FROM events WHERE event_id = ?");
+        $stmt->bind_param("i", $target_event_id);
+        $stmt->execute(); // We TRY to execute
+        $_SESSION['flash_success'] = "Event successfully deleted.";
+        $stmt->close();
+    } catch (mysqli_sql_exception $e) {
+        // We CATCH any failure and turn it into a red flash message
+        $_SESSION['flash_error'] = "Failed to delete event: " . $e->getMessage();
     }
-    $stmt->close();
-}
+    header("Location: admin.php");
+    exit();
+ }
 
 
 // --- CATEGORY MANAGEMENT LOGIC ---
@@ -67,8 +74,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_category'])) {
             $stmt = $conn->prepare("INSERT INTO event_categories (category_name) VALUES (?)");
             $stmt->bind_param("s", $new_category);
             $stmt->execute();
-            $success = "Category '$new_category' added successfully!";
+            $_SESSION['flash_success'] = "Category '$new_category' added successfully!";
             $stmt->close();
+
+            // Redirect to clear form submission
+            header("Location: admin.php");
+            exit();
         } catch (mysqli_sql_exception $e) {
             if ($e->getCode() == 1062) { // 1062 is the MySQL code for "Duplicate Entry"
                 $error = "That category already exists!";
@@ -87,14 +98,25 @@ if (isset($_GET['delete_category'])) {
         $stmt = $conn->prepare("DELETE FROM event_categories WHERE category_id = ?");
         $stmt->bind_param("i", $cat_id);
         $stmt->execute();
-        $success = "Category deleted successfully!";
+
+        // NEW FLASH LOGIC
+        $_SESSION['flash_success'] = "Category deleted successfully!";
+
+        // $success = "Category deleted successfully!";
         $stmt->close();
+
+        // Redirect to clear the ?delete_category= ID from the URL
+        header("Location: admin.php");
+        exit();
+
     } catch (mysqli_sql_exception $e) {
         if ($e->getCode() == 1451) { // 1451 is the MySQL code for "Foreign Key Constraint Failure"
-            $error = "Cannot delete this category! There are active events currently using it.";
+            $_SESSION['flash_error'] = "Cannot delete this category! There are active events currently using it.";
         } else {
-            $error = "Database error: " . $e->getMessage();
+            $_SESSION['flash_error'] = "Database error: " . $e->getMessage();
         }
+        header("Location: admin.php");
+        exit();
     }
 }
 
@@ -132,14 +154,19 @@ $result_events = $conn->query($sql_events);
     </style>
 </head>
 <body>
+
+    <!-- to replace old succes and error messages -->
+    <?php include '../includes/flash.php'; ?>
+
     <h2>Admin Dashboard: System Management</h2>
     <p>Welcome, <?php echo htmlspecialchars($_SESSION['full_name']); ?>. You have full system access.</p>
     
     <a href="../auth/logout.php">Logout</a> | <a href="../index.php">View Public Events Page</a>
     <hr>
 
-    <?php if(!empty($success)) echo "<div class='success'>$success</div><br>"; ?>
-    <?php if(!empty($error)) echo "<div class='error'>$error</div><br>"; ?>
+    <!-- old messages -->
+    <!-- <?php if(!empty($success)) echo "<div class='success'>$success</div><br>"; ?> -->
+    <!-- <?php if(!empty($error)) echo "<div class='error'>$error</div><br>"; ?> -->
 
     <!-- SECTION 1: USER MANAGEMENT -->
     <div class="table-container">
@@ -207,7 +234,7 @@ $result_events = $conn->query($sql_events);
             <?php endif; ?>
         </table>
     </div>
-    
+
     <!-- SECTION 3: CATEGORY MANAGEMENT -->
     <div class="table-container">
         <h3>Manage Categories</h3>

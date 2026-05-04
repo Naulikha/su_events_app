@@ -52,9 +52,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $stmt->execute();
                 
                 // If it doesn't crash, it means success!
-                $success = "Registration successful! You can now login.";
-                // header("Location: login.php?registered=true"); 
-                // exit();
+                // // NEW FLASH LOGIC
+                $_SESSION['flash_success'] = "Registration successful! You can now login.";
+                $stmt->close();
+
+                // Send them to the login page
+                header("Location: login.php");
+                exit();
                 
             } catch (mysqli_sql_exception $e) {
                 // If it crashes, we CATCH the error in mid-air
@@ -81,6 +85,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <title>SU Events - Register</title>
 </head>
 <body>
+    <?php include '../includes/flash.php'; ?>
     <h2>Register for SU Events</h2>
 
     <!-- Display Messages -->
