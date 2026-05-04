@@ -43,6 +43,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     $_SESSION['full_name'] = $user['full_name'];
                     $_SESSION['role'] = $user['role'];
 
+                    // trying to add succes message
+                    $_SESSION['flash_success'] = "Welcome back, " . $row['full_name'] . "!";
+
                     // The Traffic Cop: Redirect them based on their specific role
                     if ($user['role'] === 'Admin') {
                         header("Location: ../dashboard/admin.php");
@@ -73,30 +76,55 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SU Events - Login</title>
+
+    <!-- BOOTSTRAP CSS (using link) -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
-<body>
+<body class="bg-light">
     <!-- Navbar dynamic -->
     <?php include $_SERVER['DOCUMENT_ROOT'] . '/su_events_app/includes/navbar.php'; ?>
 <!-- Inject Flash Notifications -->
     <?php include '../includes/flash.php'; ?>
 
-    <h2>Login to SU Events</h2>
+<!-- BOOTSTRAP GRID SYSTEM -->
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+            <div class="col-md-5"> <!-- Makes the card responsive and centered -->
+                
+                <div class="card shadow-sm border-0 rounded-3">
+                    <div class="card-body p-4 p-md-5">
+                        <h3 class="text-center mb-4 fw-bold text-primary">Welcome Back</h3>
+                        
+                        <!-- Bootstrap Error Alert -->
+                        <?php if(!empty($error)) echo "<div class='alert alert-danger py-2'>$error</div>"; ?>
+                        
+                        <form action="login.php" method="POST" novalidate>
+                            <div class="mb-3">
+                                <label class="form-label text-muted fw-semibold">Email Address</label>
+                                <input type="email" name="email" class="form-control form-control-lg" required>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <label class="form-label text-muted fw-semibold">Password</label>
+                                <input type="password" name="password" class="form-control form-control-lg" required>
+                            </div>
+                            
+                            <button type="submit" name="login" class="btn btn-primary btn-lg w-100 fw-bold">Login</button>
+                        </form>
+                        
+                        <div class="text-center mt-4">
+                            <span class="text-muted">Don't have an account?</span> 
+                            <a href="register.php" class="text-decoration-none fw-bold">Sign up here</a>
+                        </div>
+                    </div>
+                </div>
 
-    <!-- Display Error Messages -->
-    <?php if(!empty($error)) echo "<p style='color:red;'>$error</p>"; ?>
-
-    <!-- added novalidate to allow php to do the validation -->
-    <form action="login.php" method="POST" novalidate>
-        <label>Email Address:</label><br>
-        <input type="email" name="email" required><br><br>
-
-        <label>Password:</label><br>
-        <input type="password" name="password" required><br><br>
-
-        <button type="submit">Login</button>
-    </form>
-    
-    <p>Don't have an account? <a href="register.php">Register here</a></p>
+            </div>
+        </div>
+    </div>
+    <!-- BOOTSTRAP JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
