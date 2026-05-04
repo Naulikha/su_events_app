@@ -12,6 +12,9 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Admin') {
 // REFERENCE: Working with Databases (Lecture)
 require_once '../config/db.php';
 
+// Enable exception throwing for MySQLi so we can catch constraint errors!
+mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
+
 $success = "";
 $error = "";
 
@@ -50,6 +53,53 @@ if (isset($_GET['delete_event'])) {
     }
     $stmt->close();
 }
+
+
+// --- CATEGORY MANAGEMENT LOGIC ---
+
+
+// 1. Create Category
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_category'])) {
+    $new_category = htmlspecialchars(trim($_POST['category_name']));
+    
+    if (!empty($new_category)) {
+        try {
+            $stmt = $conn->prepare("INSERT INTO event_categories (category_name) VALUES (?)");
+            $stmt->bind_param("s", $new_category);
+            $stmt->execute();
+            $success = "Category '$new_category' added successfully!";
+            $stmt->close();
+        } catch (mysqli_sql_exception $e) {
+            if ($e->getCode() == 1062) { // 1062 is the MySQL code for "Duplicate Entry"
+                $error = "That category already exists!";
+            } else {
+                $error = "Database error: " . $e->getMessage();
+            }
+        }
+    }
+}
+
+// 2. Delete Category (With Protection)
+if (isset($_GET['delete_category'])) {
+    $cat_id = (int)$_GET['delete_category'];
+    
+    try {
+        $stmt = $conn->prepare("DELETE FROM event_categories WHERE category_id = ?");
+        $stmt->bind_param("i", $cat_id);
+        $stmt->execute();
+        $success = "Category deleted successfully!";
+        $stmt->close();
+    } catch (mysqli_sql_exception $e) {
+        if ($e->getCode() == 1451) { // 1451 is the MySQL code for "Foreign Key Constraint Failure"
+            $error = "Cannot delete this category! There are active events currently using it.";
+        } else {
+            $error = "Database error: " . $e->getMessage();
+        }
+    }
+}
+
+// 3. Fetch Categories for the HTML table
+$result_categories = $conn->query("SELECT * FROM event_categories ORDER BY category_name ASC");
 
 // --- FETCH ALL USERS ---
 //new users first
@@ -154,6 +204,37 @@ $result_events = $conn->query($sql_events);
                 <?php endwhile; ?>
             <?php else: ?>
                 <tr><td colspan="7">No events have been created yet.</td></tr>
+            <?php endif; ?>
+        </table>
+    </div>
+    
+    <!-- SECTION 3: CATEGORY MANAGEMENT -->
+    <div class="table-container">
+        <h3>Manage Categories</h3>
+        
+        <!-- The Creation Form -->
+        <form method="POST" action="" style="margin-bottom: 20px;">
+            <input type="text" name="category_name" placeholder="New Category Name" required style="padding: 8px; width: 300px; border: 1px solid #ccc; border-radius: 4px;">
+            <button type="submit" name="add_category" style="background: #28a745; color: white; padding: 8px 12px; border: none; border-radius: 4px; cursor: pointer;">Add Category</button>
+        </form>
+
+        <!-- The Display Table -->
+        <table>
+            <tr>
+                <th>Category Name</th>
+                <th>Action</th>
+            </tr>
+            <?php if ($result_categories->num_rows > 0): ?>
+                <?php while($cat = $result_categories->fetch_assoc()): ?>
+                    <tr>
+                        <td><?php echo htmlspecialchars($cat['category_name']); ?></td>
+                        <td>
+                            <a href="?delete_category=<?php echo $cat['category_id']; ?>" class="btn-delete" onclick="return confirm('Are you sure you want to delete this category?');">Delete Category</a>
+                        </td>
+                    </tr>
+                <?php endwhile; ?>
+            <?php else: ?>
+                <tr><td colspan="2">No categories found.</td></tr>
             <?php endif; ?>
         </table>
     </div>
