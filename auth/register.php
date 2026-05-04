@@ -7,8 +7,9 @@ session_start();
 // REFERENCE: Working with Databases (Lecture)
 require_once '../config/db.php'; 
 
+mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
+
 $error = "";
-$success = "";
 
 // Check if form is submitted
 // REFERENCE: PHP GET and POST (Lecture)
@@ -82,45 +83,80 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SU Events - Register</title>
+    <!-- BOOTSTRAP CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
-<body>
+<body class="bg-light">
     <!-- Navbar dynamic -->
     <?php include $_SERVER['DOCUMENT_ROOT'] . '/su_events_app/includes/navbar.php'; ?>
     <!-- for flash messages -->
     <?php include '../includes/flash.php'; ?>
-    <h2>Register for SU Events</h2>
+    <div class="container mt-5 mb-5">
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+                
+                <div class="card shadow-sm border-0 rounded-3">
+                    <div class="card-body p-4 p-md-5">
+                        <h3 class="text-center mb-4 fw-bold text-primary">Register for SU Events</h3>
+                        
+                        <!-- Display PHP Errors in a Bootstrap Alert -->
+                        <?php if(!empty($error)) echo "<div class='alert alert-danger py-2'>$error</div>"; ?>
+                        
+                        <!-- Deleted Account Message upgraded to Bootstrap Alert -->
+                        <?php if(isset($_GET['deleted']) && $_GET['deleted'] == 'true'): ?>
+                            <div class='alert alert-danger py-2'>Your account has been successfully deleted.</div>
+                        <?php endif; ?>
 
-    <!-- Display Messages -->
-    <?php if(!empty($error)) echo "<p style='color:red;'>$error</p>"; ?>
-    <?php if(!empty($success)) echo "<p style='color:green;'>$success</p>"; ?>
+                        <!-- Form with your novalidate logic! -->
+                        <form action="register.php" method="POST" novalidate>
+                            
+                            <div class="mb-3">
+                                <label class="form-label text-muted fw-semibold">Full Name:</label>
+                                <input type="text" name="full_name" class="form-control" required>
+                            </div>
 
-    <!-- Deleted Account: Catches the URL parameter from delete_account.php -->
-    <?php if(isset($_GET['deleted']) && $_GET['deleted'] == 'true') echo "<p style='color:red;'>Your account has been successfully deleted.</p>"; ?>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label text-muted fw-semibold">Student ID:</label>
+                                    <input type="text" name="student_id" class="form-control" placeholder="6-20 characters" required>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label text-muted fw-semibold">I am a(n):</label>
+                                    <select name="role" class="form-select" required>
+                                        <option value="Attendee">Student (Attendee)</option>
+                                        <option value="Organiser">Society Member (Organiser)</option>
+                                    </select>
+                                </div>
+                            </div>
 
+                            <div class="mb-3">
+                                <label class="form-label text-muted fw-semibold">Email Address:</label>
+                                <input type="email" name="email" class="form-control" required>
+                            </div>
 
-    <!-- //added novalidate to allow php to take care of the validation -->
-    <form action="register.php" method="POST" novalidate>
-        <label>Full Name:</label><br>
-        <input type="text" name="full_name" required><br><br>
+                            <div class="mb-4">
+                                <label class="form-label text-muted fw-semibold">Password:</label>
+                                <input type="password" name="password" class="form-control" placeholder="Minimum 8 characters" required>
+                            </div>
 
-        <label>Student ID:</label><br>
-        <input type="text" name="student_id" required><br><br>
+                            <!-- I added name="register" here so the isset($_POST['register']) works perfectly -->
+                            <button type="submit" name="register" class="btn btn-primary btn-lg w-100 fw-bold">Register</button>
+                        </form>
 
-        <label>Email Address:</label><br>
-        <input type="email" name="email" required><br><br>
+                        <div class="text-center mt-4">
+                            <span class="text-muted">Already have an account?</span> 
+                            <a href="login.php" class="text-decoration-none fw-bold">Login here</a>
+                        </div>
+                    </div>
+                </div>
 
-        <label>Password:</label><br>
-        <input type="password" name="password" required><br><br>
-
-        <label>I am a(n):</label><br>
-        <select name="role" required>
-            <option value="Attendee">Student (Attendee)</option>
-            <option value="Organiser">Society Member (Organiser)</option>
-        </select><br><br>
-
-        <button type="submit">Register</button>
-    </form>
-    <p>Already have an account? <a href="login.php">Login here</a></p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- BOOTSTRAP JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
