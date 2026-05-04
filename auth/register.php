@@ -47,11 +47,24 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         if ($stmt) {
             $stmt->bind_param("sssss", $fullName, $studentId, $email, $hashed_password, $role);
             
-            if ($stmt->execute()) {
+            try {
+                // We TRY to execute the query
+                $stmt->execute();
+                
+                // If it doesn't crash, it means success!
                 $success = "Registration successful! You can now login.";
-                // might header("Location: login.php"); here
-            } else {
-                $error = "Error: This Student ID or Email might already exist.";
+                // header("Location: login.php?registered=true"); 
+                // exit();
+                
+            } catch (mysqli_sql_exception $e) {
+                // If it crashes, we CATCH the error in mid-air
+                if ($e->getCode() == 1062) {
+                    // 1062 is the exact code for "Duplicate Entry"
+                    $error = "An account with this Email or Student ID already exists!";
+                } else {
+                    // This catches any other random database failures
+                    $error = "Database error: " . $e->getMessage();
+                }
             }
             $stmt->close();
         } else {
