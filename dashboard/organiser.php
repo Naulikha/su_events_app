@@ -74,6 +74,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['create_event'])) {
     $category = sanitizeInput($_POST['category']);
     $organiser_id = $_SESSION['user_id'];
 
+        // Prevent time travel - no past events!
+        if (strtotime($event_date) < time()) {
+            $_SESSION['flash_error'] = "Error: You cannot schedule an event in the past!";
+            header("Location: organiser.php");
+            exit();
+        }
+    
+
     $errors = [];
 
     if (empty($title)) $errors[] = "Event title is required";
@@ -112,38 +120,65 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['create_event'])) {
                     $img_stmt->execute();
                     $img_stmt->close();
 
-                    $success = "Event created with image!";
+                    $_SESSION['flash_success'] = "Event created with image!";
+                    header("Location: organiser.php");
+                    exit();
                 } else {
-                    $success = "Event created, but image upload failed.";
+                    $_SESSION['flash_success'] = "Event created, but image upload failed.";
+                    header("Location: organiser.php");
+                    exit();
                 }
             } else {
-                $success = "Event created successfully!";
+                $_SESSION['flash_success'] = "Event created successfully!";
+                header("Location: organiser.php");
+                exit();
             }
         } else {
-            $error = "Something went wrong: " . $conn->error;
+            $_SESSION['flash_error'] = "Something went wrong: " . $conn->error;
+            header("Location: organiser.php");
+            exit();
         }
 
         $stmt->close();
     } else {
-        $error = implode(", ", $errors);
+        $_SESSION['flash_error'] = implode(", ", $errors);
+        header("Location: organiser.php");
+        exit();
     }
 }
 
-// Handle delete event
+// Handle delete event - WITH IMAGE DELETION
 if (isset($_GET['delete'])) {
     $event_id = sanitizeInput($_GET['delete']);
-
+    
+    // First, get the image path from the database
+    $img_sql = "SELECT image_path FROM events WHERE event_id = ? AND organiser_id = ?";
+    $img_stmt = $conn->prepare($img_sql);
+    $img_stmt->bind_param("ii", $event_id, $_SESSION['user_id']);
+    $img_stmt->execute();
+    $result_img = $img_stmt->get_result();
+    
+    if ($row = $result_img->fetch_assoc()) {
+        // If an image exists, physically delete it from the server folder
+        if (!empty($row['image_path']) && file_exists("../" . $row['image_path'])) {
+            unlink("../" . $row['image_path']);
+        }
+    }
+    $img_stmt->close();
+    
+    // Now, delete the event from the database
     $sql = "DELETE FROM events WHERE event_id = ? AND organiser_id = ?";
     $stmt = $conn->prepare($sql);
     $stmt->bind_param("ii", $event_id, $_SESSION['user_id']);
-
+    
     if ($stmt->execute()) {
-        $success = "Event deleted successfully!";
+        $_SESSION['flash_success'] = "Event and associated image deleted successfully!";
     } else {
-        $error = "Could not delete event";
+        $_SESSION['flash_error'] = "Could not delete event.";
     }
-
     $stmt->close();
+    header("Location: organiser.php");
+    exit();
 }
 
 // Handle update event
@@ -156,6 +191,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_event'])) {
     $max_capacity = sanitizeInput($_POST['max_capacity']);
     $society_name = sanitizeInput($_POST['society_name']);
     $category = sanitizeInput($_POST['category']);
+
+        // Prevent time travel - no past events on update!
+        if (strtotime($event_date) < time()) {
+            $_SESSION['flash_error'] = "Error: You cannot schedule an event in the past!";
+            header("Location: organiser.php");
+            exit();
+        }
+    
 
     $sql = "UPDATE events 
             SET title = ?, description = ?, event_date = ?, location = ?, max_capacity = ?, society_name = ?, category = ?
@@ -188,9 +231,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_event'])) {
             }
         }
 
-        $success = "Event updated successfully!";
+        $_SESSION['flash_success'] = "Event updated successfully!";
+        header("Location: organiser.php");
+        exit();
     } else {
-        $error = "Error updating event: " . $conn->error;
+        $_SESSION['flash_error'] = "Error updating event: " . $conn->error;
+        header("Location: organiser.php");
+        exit();
     }
 
     $stmt->close();
@@ -269,6 +316,8 @@ if (isset($_GET['view_roster'])) {
         .btn-roster:hover { background: #138496; }
         .success { background: #d4edda; color: #155724; padding: 12px; border-radius: 4px; margin-bottom: 20px; border: 1px solid #c3e6cb; }
         .error { background: #f8d7da; color: #721c24; padding: 12px; border-radius: 4px; margin-bottom: 20px; border: 1px solid #f5c6cb; }
+        .flash-success { background: #d4edda; color: #155724; padding: 12px; border-radius: 4px; margin-bottom: 20px; border: 1px solid #c3e6cb; }
+        .flash-error { background: #f8d7da; color: #721c24; padding: 12px; border-radius: 4px; margin-bottom: 20px; border: 1px solid #f5c6cb; }
         .edit-form { margin-top: 15px; padding-top: 15px; border-top: 1px solid #eee; }
         .btn-small { padding: 6px 12px; font-size: 14px; }
         .actions { margin-top: 15px; }
@@ -289,14 +338,14 @@ if (isset($_GET['view_roster'])) {
         <h1>Welcome, <?php echo htmlspecialchars($_SESSION['full_name']); ?>!</h1>
         <p style="color: #666; margin-bottom: 30px;">Manage all your society events from this dashboard.</p>
 
-        <?php if (isset($success)): ?>
-            <div class="success"><?php echo $success; ?></div>
+                <!-- Flash Messages -->
+        <?php if (isset($_SESSION['flash_success'])): ?>
+            <div class="flash-success"><?php echo $_SESSION['flash_success']; unset($_SESSION['flash_success']); ?></div>
         <?php endif; ?>
-
-        <?php if (isset($error)): ?>
-            <div class="error"><?php echo $error; ?></div>
+        <?php if (isset($_SESSION['flash_error'])): ?>
+            <div class="flash-error"><?php echo $_SESSION['flash_error']; unset($_SESSION['flash_error']); ?></div>
         <?php endif; ?>
-
+        
         <?php if ($show_roster && $roster_event): ?>
 
             <!-- ATTENDEE ROSTER VIEW -->
@@ -352,11 +401,13 @@ if (isset($_GET['view_roster'])) {
                         <label>Category *</label>
                         <select name="category" required>
                             <option value="">Select Category</option>
-                            <option value="Academic">Academic</option>
-                            <option value="Social">Social</option>
-                            <option value="Sports">Sports</option>
-                            <option value="Career">Career</option>
-                            <option value="Entertainment">Entertainment</option>
+                            <?php
+                            $cat_sql = "SELECT category_name FROM event_categories ORDER BY category_name ASC";
+                            $cat_result = $conn->query($cat_sql);
+                            while ($cat = $cat_result->fetch_assoc()) {
+                                echo "<option value='" . htmlspecialchars($cat['category_name']) . "'>" . htmlspecialchars($cat['category_name']) . "</option>";
+                            }
+                            ?>
                         </select>
                     </div>
 
@@ -367,7 +418,7 @@ if (isset($_GET['view_roster'])) {
 
                     <div class="form-group">
                         <label>Date and Time *</label>
-                        <input type="datetime-local" name="event_date" required>
+                        <input type="datetime-local" name="event_date" min="<?php echo date('Y-m-d\TH:i'); ?>" required>
                     </div>
 
                     <div class="form-group">
@@ -462,11 +513,15 @@ if (isset($_GET['view_roster'])) {
                                     <div class="form-group">
                                         <label>Category</label>
                                         <select name="category" required>
-                                            <option value="Academic" <?php echo $event['category'] == 'Academic' ? 'selected' : ''; ?>>Academic</option>
-                                            <option value="Social" <?php echo $event['category'] == 'Social' ? 'selected' : ''; ?>>Social</option>
-                                            <option value="Sports" <?php echo $event['category'] == 'Sports' ? 'selected' : ''; ?>>Sports</option>
-                                            <option value="Career" <?php echo $event['category'] == 'Career' ? 'selected' : ''; ?>>Career</option>
-                                            <option value="Entertainment" <?php echo $event['category'] == 'Entertainment' ? 'selected' : ''; ?>>Entertainment</option>
+                                            <option value="">Select Category</option>
+                                            <?php
+                                            $cat_sql = "SELECT category_name FROM event_categories ORDER BY category_name ASC";
+                                            $cat_result = $conn->query($cat_sql);
+                                            while ($cat = $cat_result->fetch_assoc()) {
+                                                $selected = ($event['category'] == $cat['category_name']) ? 'selected' : '';
+                                                echo "<option value='" . htmlspecialchars($cat['category_name']) . "' $selected>" . htmlspecialchars($cat['category_name']) . "</option>";
+                                            }
+                                            ?>
                                         </select>
                                     </div>
 
@@ -477,7 +532,7 @@ if (isset($_GET['view_roster'])) {
 
                                     <div class="form-group">
                                         <label>Date and Time</label>
-                                        <input type="datetime-local" name="event_date" value="<?php echo date('Y-m-d\TH:i', strtotime($event['event_date'])); ?>" required>
+                                        <input type="datetime-local" name="event_date" value="<?php echo date('Y-m-d\TH:i', strtotime($event['event_date'])); ?>" min="<?php echo date('Y-m-d\TH:i'); ?>" required>
                                     </div>
 
                                     <div class="form-group">
